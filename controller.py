@@ -1,22 +1,17 @@
+import torch
+import torch.nn as nn
 import torch.backends.cudnn as cudnn
-
 from torch.utils.data import DataLoader
 from torch.autograd import Variable
 
-from custom_dataset import MultiViewDataSet
-
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
 import torchvision.transforms as transforms
 
 import numpy as np
 import time
-
-import matplotlib.pyplot as plt
-from resnet import *
-
 import os
+
+from custom_dataset import MultiViewDataSet
+from resnet import *
 
 
 print('Loading data')
@@ -25,7 +20,6 @@ transform = transforms.Compose([
     transforms.CenterCrop(500),
     transforms.ToTensor(),
 ])
-
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
