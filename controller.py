@@ -11,7 +11,8 @@ import time
 import os
 
 from custom_dataset import MultiViewDataSet
-from resnet import *
+#from custom_dataset2 import MultiViewDataSet
+from models.resnet import *
 
 
 print('Loading data')
@@ -23,19 +24,30 @@ transform = transforms.Compose([
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-dset_train = MultiViewDataSet('data/train', transform=transform)
-train_loader = DataLoader(dset_train, batch_size=4, shuffle=True, num_workers=2)
+use_all = False
+resume = False
 
-dset_val = MultiViewDataSet('data/val', transform=transform)
-val_loader = DataLoader(dset_val, batch_size=4, shuffle=True, num_workers=2)
+if use_all:
+    dset_train = MultiViewDataSet('classes', 'train', transform=transform)
+    train_loader = DataLoader(dset_train, batch_size=4, shuffle=True, num_workers=2)
 
-dset_test = MultiViewDataSet('data/test', transform=transform)
-test_loader = DataLoader(dset_test, batch_size=1, shuffle=True, num_workers=2)
+    dset_val = MultiViewDataSet('classes', 'test', transform=transform)
+    val_loader = DataLoader(dset_val, batch_size=4, shuffle=True, num_workers=2)
+
+else:
+    dset_train = MultiViewDataSet('data/train', transform=transform)
+    train_loader = DataLoader(dset_train, batch_size=4, shuffle=True, num_workers=2)
+
+    dset_val = MultiViewDataSet('data/val', transform=transform)
+    val_loader = DataLoader(dset_val, batch_size=4, shuffle=True, num_workers=2)
+
+#dset_test = MultiViewDataSet('data/test', transform=transform)
+#test_loader = DataLoader(dset_test, batch_size=1, shuffle=True, num_workers=2)
 
 classes = dset_train.classes
-print(classes)
+print(len(classes), classes)
 
-resnet = resnet18()
+resnet = resnet18(num_classes=len(classes))
 resnet.to(device)
 cudnn.benchmark = True
 
@@ -164,7 +176,6 @@ def save_checkpoint(state, checkpoint='checkpoint', filename='checkpoint.pth.tar
 
 
 # Training / Eval loop
-resume = True
 
 if resume:
     load_checkpoint()
@@ -205,6 +216,7 @@ for epoch in range(start_epoch, n_epochs):
         print('Learning rate:', lr)
 
 
+exit()
 resnet.eval()
 avg_test_acc, avg_loss = test()
 

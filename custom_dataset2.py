@@ -11,7 +11,7 @@ class MultiViewDataSet(Dataset):
 
         return classes, class_to_idx
 
-    def __init__(self, root, transform=None, target_transform=None):
+    def __init__(self, root, data_type, transform=None, target_transform=None):
         self.x = []
         self.y = []
         self.root = root
@@ -24,12 +24,13 @@ class MultiViewDataSet(Dataset):
         self.transform = transform
         self.target_transform = target_transform
 
-        # root / <label>  / <item> / <view>.png
-        for label in os.listdir(root):
-            for item in os.listdir(root + '/' + label):
+
+        # root / <label>  / <train/test> / <item> / <view>.png
+        for label in os.listdir(root): # Label
+            for item in os.listdir(root + '/' + label + '/' + data_type):
                 views = []
-                for view in os.listdir(root + '/' + label + '/' + item):
-                    views.append(root + '/' + label + '/' + item + '/' + view)
+                for view in os.listdir(root + '/' + label + '/' + data_type + '/' + item):
+                    views.append(root + '/' + label + '/' + data_type + '/' + item + '/' + view)
 
                 self.x.append(views)
                 self.y.append(class_to_idx[label])
