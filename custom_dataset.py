@@ -48,6 +48,7 @@ class MultiViewDataSet(Dataset):
 
         for view in orginal_views:
             im = Image.open(view)
+            im = im.convert('RGB')
             if self.transform is not None:
                 im = self.transform(im)
             views.append(im)

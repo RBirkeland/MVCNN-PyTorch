@@ -10,15 +10,15 @@ import numpy as np
 import time
 import os
 
-from custom_dataset import MultiViewDataSet
-#from custom_dataset2 import MultiViewDataSet
 from models.resnet import *
-
+import util
+from logger import Logger
 
 print('Loading data')
 
 transform = transforms.Compose([
     transforms.CenterCrop(500),
+    transforms.Resize(224),
     transforms.ToTensor(),
 ])
 
@@ -26,8 +26,10 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 use_all = False
 resume = False
+only_test = True
 
 if use_all:
+    from custom_dataset2 import MultiViewDataSet
     dset_train = MultiViewDataSet('classes', 'train', transform=transform)
     train_loader = DataLoader(dset_train, batch_size=4, shuffle=True, num_workers=2)
 
@@ -35,14 +37,16 @@ if use_all:
     val_loader = DataLoader(dset_val, batch_size=4, shuffle=True, num_workers=2)
 
 else:
+    from custom_dataset import MultiViewDataSet
     dset_train = MultiViewDataSet('data/train', transform=transform)
     train_loader = DataLoader(dset_train, batch_size=4, shuffle=True, num_workers=2)
 
     dset_val = MultiViewDataSet('data/val', transform=transform)
     val_loader = DataLoader(dset_val, batch_size=4, shuffle=True, num_workers=2)
 
-#dset_test = MultiViewDataSet('data/test', transform=transform)
-#test_loader = DataLoader(dset_test, batch_size=1, shuffle=True, num_workers=2)
+    dset_test = MultiViewDataSet('data/test', transform=transform)
+    test_loader = DataLoader(dset_test, batch_size=8, shuffle=True, num_workers=2)
+
 
 classes = dset_train.classes
 print(len(classes), classes)
@@ -53,13 +57,16 @@ cudnn.benchmark = True
 
 print(device)
 
+logger = Logger('logs')
+
 # Loss and Optimizer
 criterion = nn.CrossEntropyLoss()
 lr = 0.01
 optimizer = torch.optim.Adam(resnet.parameters(), lr=lr)
 n_epochs = 10
 
-best_acc = 0
+best_acc = 0.0
+best_loss = 0.0
 start_epoch = 0
 
 
@@ -105,7 +112,7 @@ def eval():
     total = 0
     correct = 0
 
-    total_loss = 0
+    total_loss = 0.0
     n = 0
 
     for i, (inputs, targets) in enumerate(val_loader):
@@ -138,10 +145,10 @@ def test():
     load_checkpoint()
 
     # Eval
-    total = 0
-    correct = 0
+    total = 0.0
+    correct = 0.0
 
-    total_loss = 0
+    total_loss = 0.0
     n = 0
 
     for i, (inputs, targets) in enumerate(test_loader):
@@ -175,6 +182,17 @@ def save_checkpoint(state, checkpoint='checkpoint', filename='checkpoint.pth.tar
     torch.save(state, filepath)
 
 
+# Testing
+
+if only_test:
+    resnet.eval()
+    avg_test_acc, avg_loss = test()
+
+    print('\nTest:')
+    print('\tTest Acc: %d - Loss: %.4f' % (avg_test_acc.item(), avg_loss.item()))
+    print('\tCurrent best model: %d' % best_acc)
+    exit()
+
 # Training / Eval loop
 
 if resume:
@@ -201,6 +219,7 @@ for epoch in range(start_epoch, n_epochs):
     if avg_test_acc > best_acc:
         print('\tSaving checkpoint - Acc: %d' % avg_test_acc)
         best_acc = avg_test_acc
+        best_loss = avg_loss
         save_checkpoint({
             'epoch': epoch + 1,
             'state_dict': resnet.state_dict(),
@@ -215,11 +234,4 @@ for epoch in range(start_epoch, n_epochs):
         optimizer = torch.optim.Adam(resnet.parameters(), lr=lr)
         print('Learning rate:', lr)
 
-
-exit()
-resnet.eval()
-avg_test_acc, avg_loss = test()
-
-print('\nTest:')
-print('\tTest Acc: %d - Loss: %.4f' % (avg_test_acc.item(), avg_loss.item()))
-print('\tCurrent best model: %d' % best_acc)
+    util.logEpoch(logger, resnet, epoch, avg_loss, avg_test_acc)
