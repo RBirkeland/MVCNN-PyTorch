@@ -1,3 +1,6 @@
+import torch
+import os
+
 def logEpoch(logger, model, epoch, loss, accuracy):
     # 1. Log scalar values (scalar summary)
     info = {'loss': loss.item(), 'accuracy': accuracy.item()}
@@ -16,3 +19,7 @@ def logEpoch(logger, model, epoch, loss, accuracy):
 
     #for tag, images in info.items():
         #logger.image_summary(tag, images, epoch)
+
+def save_checkpoint(state, checkpoint='checkpoint', filename='checkpoint40class87percent.pth.tar'):
+    filepath = os.path.join(checkpoint, filename)
+    torch.save(state, filepath)

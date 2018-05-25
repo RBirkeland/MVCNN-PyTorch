@@ -13,6 +13,7 @@ import os
 from models.resnet import *
 import util
 from logger import Logger
+from custom_dataset import MultiViewDataSet
 
 print('Loading data')
 
@@ -24,29 +25,12 @@ transform = transforms.Compose([
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-use_all = False
-resume = False
-only_test = True
+# Load dataset
+dset_train = MultiViewDataSet('classes', 'train', transform=transform)
+train_loader = DataLoader(dset_train, batch_size=4, shuffle=True, num_workers=2)
 
-if use_all:
-    from custom_dataset2 import MultiViewDataSet
-    dset_train = MultiViewDataSet('classes', 'train', transform=transform)
-    train_loader = DataLoader(dset_train, batch_size=4, shuffle=True, num_workers=2)
-
-    dset_val = MultiViewDataSet('classes', 'test', transform=transform)
-    val_loader = DataLoader(dset_val, batch_size=4, shuffle=True, num_workers=2)
-
-else:
-    from custom_dataset import MultiViewDataSet
-    dset_train = MultiViewDataSet('data/train', transform=transform)
-    train_loader = DataLoader(dset_train, batch_size=4, shuffle=True, num_workers=2)
-
-    dset_val = MultiViewDataSet('data/val', transform=transform)
-    val_loader = DataLoader(dset_val, batch_size=4, shuffle=True, num_workers=2)
-
-    dset_test = MultiViewDataSet('data/test', transform=transform)
-    test_loader = DataLoader(dset_test, batch_size=8, shuffle=True, num_workers=2)
-
+dset_val = MultiViewDataSet('classes', 'test', transform=transform)
+val_loader = DataLoader(dset_val, batch_size=4, shuffle=True, num_workers=2)
 
 classes = dset_train.classes
 print(len(classes), classes)
@@ -55,15 +39,16 @@ resnet = resnet18(num_classes=len(classes))
 resnet.to(device)
 cudnn.benchmark = True
 
-print(device)
+print('Running on ' + str(device))
 
 logger = Logger('logs')
 
 # Loss and Optimizer
-criterion = nn.CrossEntropyLoss()
+resume = False  # Resume training from checkpoint
 lr = 0.01
+n_epochs = 20
+criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(resnet.parameters(), lr=lr)
-n_epochs = 10
 
 best_acc = 0.0
 best_loss = 0.0
@@ -75,13 +60,14 @@ def load_checkpoint():
     global best_acc, start_epoch
     # Load checkpoint.
     print('\n==> Loading checkpoint..')
-    assert os.path.isfile('checkpoint/checkpoint.pth.tar'), 'Error: no checkpoint file found!'
+    assert os.path.isfile('checkpoint/checkpoint40class87percent.pth.tar'), 'Error: no checkpoint file found!'
 
-    checkpoint = torch.load('checkpoint/checkpoint.pth.tar')
+    checkpoint = torch.load('checkpoint/checkpoint40class87percent.pth.tar')
     best_acc = checkpoint['best_acc']
     start_epoch = checkpoint['epoch']
     resnet.load_state_dict(checkpoint['state_dict'])
     optimizer.load_state_dict(checkpoint['optimizer'])
+
 
 def train():
     train_size = len(train_loader)
@@ -104,45 +90,14 @@ def train():
         loss.backward()
         optimizer.step()
 
-        if (i + 1) % 5 == 0:
+        if (i + 1) % 100 == 0:
             print("\tIter [%d/%d] Loss: %.4f" % (i + 1, train_size, loss.item()))
 
-def eval():
-    # Eval
-    total = 0
-    correct = 0
 
-    total_loss = 0.0
-    n = 0
-
-    for i, (inputs, targets) in enumerate(val_loader):
-        with torch.no_grad():
-            # Convert from list of 3D to 4D
-            inputs = np.stack(inputs, axis=1)
-
-            inputs = torch.from_numpy(inputs)
-
-            inputs, targets = inputs.cuda(), targets.cuda()
-            inputs, targets = Variable(inputs), Variable(targets)
-
-            # compute output
-            outputs = resnet(inputs)
-            loss = criterion(outputs, targets)
-
-            total_loss += loss
-            n += 1
-
-            _, predicted = torch.max(outputs.data, 1)
-            total += targets.size(0)
-            correct += (predicted.cpu() == targets.cpu()).sum()
-
-    avg_test_acc = 100 * correct / total
-    avg_loss = total_loss / n
-
-    return avg_test_acc, avg_loss
-
-def test():
-    load_checkpoint()
+# Validation and Testing
+def eval(data_loader, is_test=False):
+    if is_test:
+        load_checkpoint()
 
     # Eval
     total = 0.0
@@ -151,7 +106,7 @@ def test():
     total_loss = 0.0
     n = 0
 
-    for i, (inputs, targets) in enumerate(test_loader):
+    for i, (inputs, targets) in enumerate(data_loader):
         with torch.no_grad():
             # Convert from list of 3D to 4D
             inputs = np.stack(inputs, axis=1)
@@ -177,28 +132,11 @@ def test():
 
     return avg_test_acc, avg_loss
 
-def save_checkpoint(state, checkpoint='checkpoint', filename='checkpoint.pth.tar'):
-    filepath = os.path.join(checkpoint, filename)
-    torch.save(state, filepath)
-
-
-# Testing
-
-if only_test:
-    resnet.eval()
-    avg_test_acc, avg_loss = test()
-
-    print('\nTest:')
-    print('\tTest Acc: %d - Loss: %.4f' % (avg_test_acc.item(), avg_loss.item()))
-    print('\tCurrent best model: %d' % best_acc)
-    exit()
 
 # Training / Eval loop
-
 if resume:
     load_checkpoint()
 
-# Training
 for epoch in range(start_epoch, n_epochs):
     print('\n-----------------------------------')
     print('Epoch: [%d/%d]' % (epoch+1, n_epochs))
@@ -206,21 +144,25 @@ for epoch in range(start_epoch, n_epochs):
 
     resnet.train()
     train()
-    print('Time taken: %d sec.' % (time.time() - start))
+    print('Time taken: %.2f sec.' % (time.time() - start))
 
     resnet.eval()
-    avg_test_acc, avg_loss = eval()
+    avg_test_acc, avg_loss = eval(val_loader)
 
     print('\nEvaluation:')
-    print('\tVal Acc: %d - Loss: %.4f' % (avg_test_acc.item(), avg_loss.item()))
-    print('\tCurrent best model: %d' % best_acc)
+    print('\tVal Acc: %.2f - Loss: %.4f' % (avg_test_acc.item(), avg_loss.item()))
+    print('\tCurrent best val acc: %.2f' % best_acc)
+
+    # Log epoch to tensorboard
+    # See log using: tensorboard --logdir='logs' --port=6006
+    util.logEpoch(logger, resnet, epoch + 1, avg_loss, avg_test_acc)
 
     # Save model
     if avg_test_acc > best_acc:
-        print('\tSaving checkpoint - Acc: %d' % avg_test_acc)
+        print('\tSaving checkpoint - Acc: %.2f' % avg_test_acc)
         best_acc = avg_test_acc
         best_loss = avg_loss
-        save_checkpoint({
+        util.save_checkpoint({
             'epoch': epoch + 1,
             'state_dict': resnet.state_dict(),
             'acc': avg_test_acc,
@@ -229,9 +171,7 @@ for epoch in range(start_epoch, n_epochs):
         })
 
     # Decaying Learning Rate
-    if (epoch + 1) % 20 == 0:
-        lr *= 0.99
+    if (epoch + 1) % 5 == 0:
+        lr *= 0.9
         optimizer = torch.optim.Adam(resnet.parameters(), lr=lr)
         print('Learning rate:', lr)
-
-    util.logEpoch(logger, resnet, epoch, avg_loss, avg_test_acc)
