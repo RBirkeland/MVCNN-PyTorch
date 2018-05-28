@@ -1,4 +1,4 @@
-# MVCNN-ResNet
+# MVCNN-PyTorch
 ## Multi-View CNN built on ResNet to classify 3D objects
 A PyTorch implementation of MVCNN using ResNet, inspired by the paper by [Hang Su](http://vis-www.cs.umass.edu/mvcnn/docs/su15mvcnn.pdf).
 
