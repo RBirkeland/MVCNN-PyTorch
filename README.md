@@ -4,6 +4,12 @@ A PyTorch implementation of MVCNN using ResNet, inspired by the paper by [Hang S
 
 Reaches validation accuracy of 87% after 20 epochs using ResNet18
 
+### Dependences
+torch
+torchvision
+numpy
+tensorflow (for logging)
+
 ### Dataset
 ModelNet40 12-view PNG dataset can be downloaded from [Google Drive](https://drive.google.com/file/d/0B4v2jR3WsindMUE3N2xiLVpyLW8/view).
 
