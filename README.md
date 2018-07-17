@@ -14,7 +14,7 @@ MVCNN uses multiple 2D images of 3D objects to classify them. You can use the pr
 ### Dataset
 ModelNet40 12-view PNG dataset can be downloaded from [Google Drive](https://drive.google.com/file/d/0B4v2jR3WsindMUE3N2xiLVpyLW8/view).
 
-Extract the dataset in the root folder.
+You can also create your own 2D dataset from 3D objects (.obj, .stl, and .off), using [BlenderPhong](https://github.com/WeiTang114/BlenderPhong)
 
 ### Setup
 ```bash
