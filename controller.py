@@ -6,6 +6,7 @@ from torch.autograd import Variable
 
 import torchvision.transforms as transforms
 
+import argparse
 import numpy as np
 import time
 import os
@@ -14,6 +15,29 @@ from models.resnet import *
 import util
 from logger import Logger
 from custom_dataset import MultiViewDataSet
+
+parser = argparse.ArgumentParser(description='MVCNN-PyTorch')
+parser.add_argument('data', metavar='DIR', help='path to dataset')
+parser.add_argument('--resnet', default=18, choices=[18, 34, 50, 101, 152], type=int, metavar='N', help='resnet depth (default: resnet18)')
+parser.add_argument('--epochs', default=100, type=int, metavar='N', help='number of total epochs to run (default: 100)')
+parser.add_argument('-b', '--batch-size', default=4, type=int,
+                    metavar='N', help='mini-batch size (default: 4)')
+parser.add_argument('--lr', '--learning-rate', default=0.01, type=float,
+                    metavar='LR', help='initial learning rate (default: 0.01)')
+parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
+                    help='momentum (default: 0.9)')
+parser.add_argument('--lr-decay-freq', default=30, type=float,
+                    metavar='W', help='learning rate decay (default: 30)')
+parser.add_argument('--lr-decay', default=0.1, type=float,
+                    metavar='W', help='learning rate decay (default: 0.1)')
+parser.add_argument('--print-freq', '-p', default=10, type=int,
+                    metavar='N', help='print frequency (default: 10)')
+parser.add_argument('-r', '--resume', default='', type=str, metavar='PATH',
+                    help='path to latest checkpoint (default: none)')
+parser.add_argument('--pretrained', dest='pretrained', action='store_true',
+                    help='use pre-trained model')
+
+args = parser.parse_args()
 
 print('Loading data')
 
@@ -26,16 +50,27 @@ transform = transforms.Compose([
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 # Load dataset
-dset_train = MultiViewDataSet('classes', 'train', transform=transform)
-train_loader = DataLoader(dset_train, batch_size=4, shuffle=True, num_workers=2)
+dset_train = MultiViewDataSet(args.data, 'train', transform=transform)
+train_loader = DataLoader(dset_train, batch_size=args.batch_size, shuffle=True, num_workers=2)
 
-dset_val = MultiViewDataSet('classes', 'test', transform=transform)
-val_loader = DataLoader(dset_val, batch_size=4, shuffle=True, num_workers=2)
+dset_val = MultiViewDataSet(args.data, 'test', transform=transform)
+val_loader = DataLoader(dset_val, batch_size=args.batch_size, shuffle=True, num_workers=2)
 
 classes = dset_train.classes
 print(len(classes), classes)
 
-resnet = resnet18(num_classes=len(classes))
+if args.resnet == 18:
+    resnet = resnet18(num_classes=len(classes))
+elif args.resnet == 34:
+    resnet = resnet34(num_classes=len(classes))
+elif args.resnet == 50:
+    resnet = resnet50(num_classes=len(classes))
+elif args.resnet == 101:
+    resnet = resnet101(num_classes=len(classes))
+elif args.resnet == 152:
+    resnet = resnet152(num_classes=len(classes))
+
+print('Using resnet' + str(args.resnet))
 resnet.to(device)
 cudnn.benchmark = True
 
@@ -44,9 +79,8 @@ print('Running on ' + str(device))
 logger = Logger('logs')
 
 # Loss and Optimizer
-resume = False  # Resume training from checkpoint
-lr = 0.01
-n_epochs = 20
+lr = args.lr
+n_epochs = args.epochs
 criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(resnet.parameters(), lr=lr)
 
@@ -60,9 +94,9 @@ def load_checkpoint():
     global best_acc, start_epoch
     # Load checkpoint.
     print('\n==> Loading checkpoint..')
-    assert os.path.isfile('checkpoint/checkpoint40class87percent.pth.tar'), 'Error: no checkpoint file found!'
+    assert os.path.isfile(args.resume), 'Error: no checkpoint file found!'
 
-    checkpoint = torch.load('checkpoint/checkpoint40class87percent.pth.tar')
+    checkpoint = torch.load(args.resume)
     best_acc = checkpoint['best_acc']
     start_epoch = checkpoint['epoch']
     resnet.load_state_dict(checkpoint['state_dict'])
@@ -90,7 +124,7 @@ def train():
         loss.backward()
         optimizer.step()
 
-        if (i + 1) % 100 == 0:
+        if (i + 1) % args.print_freq == 0:
             print("\tIter [%d/%d] Loss: %.4f" % (i + 1, train_size, loss.item()))
 
 
@@ -134,7 +168,7 @@ def eval(data_loader, is_test=False):
 
 
 # Training / Eval loop
-if resume:
+if args.resume:
     load_checkpoint()
 
 for epoch in range(start_epoch, n_epochs):
@@ -171,7 +205,7 @@ for epoch in range(start_epoch, n_epochs):
         })
 
     # Decaying Learning Rate
-    if (epoch + 1) % 5 == 0:
-        lr *= 0.9
+    if (epoch + 1) % args.lr_decay_freq == 0:
+        lr *= args.lr_decay
         optimizer = torch.optim.Adam(resnet.parameters(), lr=lr)
         print('Learning rate:', lr)
