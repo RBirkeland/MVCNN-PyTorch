@@ -1,6 +1,7 @@
 # MVCNN-PyTorch
 ## Multi-View CNN built on ResNet to classify 3D objects
 A PyTorch implementation of MVCNN using ResNet, inspired by the paper by [Hang Su](http://vis-www.cs.umass.edu/mvcnn/docs/su15mvcnn.pdf).
+MVCNN uses multiple 2D images of 3D objects to classify them. You can use the provided dataset or create your own.
 
 ![MVCNN](https://preview.ibb.co/eKcJHy/687474703a2f2f7669732d7777772e63732e756d6173732e6564752f6d76636e6e2f696d616765732f6d76636e6e2e706e67.png)
 
@@ -22,13 +23,21 @@ mkdir logs
 ```
 
 ### Train
+To start training, simply point to the path of the downloaded dataset. All the other settings are optional.
+
 ```
-python controller.py
+python controller.py <path to dataset>  [--resnet N] [--epochs N] [-b N] [--lr LR]
+                                        [--momentum M] [--lr-decay-freq W] [--lr-decay W]
+                                        [--print-freq N] [-r PATH]
 ```
-To resume training from checkpoint, change 'resume = True' in controller.py
+
+To resume from a checkpoint, use the -r tag together with the path to the checkpoint file.
 
 ### Tensorboard
 To view training logs
 ```
 tensorboard --logdir='logs' --port=6006
 ```
+
+### TODO
+Add support for pretrained models
