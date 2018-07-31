@@ -38,6 +38,3 @@ To view training logs
 ```
 tensorboard --logdir='logs' --port=6006
 ```
-
-### TODO
-Add support for pretrained models
