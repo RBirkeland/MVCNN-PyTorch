@@ -214,7 +214,7 @@ for epoch in range(start_epoch, n_epochs):
             'acc': avg_test_acc,
             'best_acc': best_acc,
             'optimizer': optimizer.state_dict(),
-        }, args.model, args.resnet)
+        }, args.model, args.depth)
 
     # Decaying Learning Rate
     if (epoch + 1) % args.lr_decay_freq == 0:
