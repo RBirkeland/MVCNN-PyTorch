@@ -26,9 +26,9 @@ mkdir logs
 To start training, simply point to the path of the downloaded dataset. All the other settings are optional.
 
 ```
-python controller.py <path to dataset>  [--resnet N] [--epochs N] [-b N] [--lr LR]
-                                        [--momentum M] [--lr-decay-freq W] [--lr-decay W]
-                                        [--print-freq N] [-r PATH]
+python controller.py <path to dataset>  [--depth N] [--model MODEL] [--epochs N] [-b N]
+                                        [--lr LR] [--momentum M] [--lr-decay-freq W]
+                                        [--lr-decay W] [--print-freq N] [-r PATH] [--pretrained]
 ```
 
 To resume from a checkpoint, use the -r tag together with the path to the checkpoint file.

@@ -23,14 +23,14 @@ MODELS = [RESNET,MVCNN]
 
 parser = argparse.ArgumentParser(description='MVCNN-PyTorch')
 parser.add_argument('data', metavar='DIR', help='path to dataset')
-parser.add_argument('--resnet', choices=[18, 34, 50, 101, 152], type=int, metavar='N', help='resnet depth (default: resnet18)')
-parser.add_argument('--model', '-m', metavar='MODEL', default=MVCNN, choices=MODELS,
+parser.add_argument('--depth', choices=[18, 34, 50, 101, 152], type=int, metavar='N', default=18, help='resnet depth (default: resnet18)')
+parser.add_argument('--model', '-m', metavar='MODEL', default=RESNET, choices=MODELS,
                     help='pretrained model: ' + ' | '.join(MODELS) + ' (default: {})'.format(RESNET))
 parser.add_argument('--epochs', default=100, type=int, metavar='N', help='number of total epochs to run (default: 100)')
 parser.add_argument('-b', '--batch-size', default=4, type=int,
                     metavar='N', help='mini-batch size (default: 4)')
 parser.add_argument('--lr', '--learning-rate', default=0.0001, type=float,
-                    metavar='LR', help='initial learning rate (default: 0.01)')
+                    metavar='LR', help='initial learning rate (default: 0.0001)')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                     help='momentum (default: 0.9)')
 parser.add_argument('--lr-decay-freq', default=30, type=float,
@@ -66,19 +66,19 @@ classes = dset_train.classes
 print(len(classes), classes)
 
 if args.model == RESNET:
-    if args.resnet == 18:
+    if args.depth == 18:
         model = resnet18(pretrained=args.pretrained, num_classes=len(classes))
-    elif args.resnet == 34:
+    elif args.depth == 34:
         model = resnet34(pretrained=args.pretrained, num_classes=len(classes))
-    elif args.resnet == 50:
+    elif args.depth == 50:
         model = resnet50(pretrained=args.pretrained, num_classes=len(classes))
-    elif args.resnet == 101:
+    elif args.depth == 101:
         model = resnet101(pretrained=args.pretrained, num_classes=len(classes))
-    elif args.resnet == 152:
+    elif args.depth == 152:
         model = resnet152(pretrained=args.pretrained, num_classes=len(classes))
     else:
         raise Exception('Specify number of layers for resnet in command line. --resnet N')
-    print('Using ' + args.model + str(args.resnet))
+    print('Using ' + args.model + str(args.depth))
 else:
     model = mvcnn(pretrained=args.pretrained,num_classes=len(classes))
     print('Using ' + args.model)
