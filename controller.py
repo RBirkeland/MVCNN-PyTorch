@@ -12,17 +12,24 @@ import time
 import os
 
 from models.resnet import *
+from models.mvcnn import *
 import util
 from logger import Logger
 from custom_dataset import MultiViewDataSet
 
+MVCNN = 'mvcnn'
+RESNET = 'resnet'
+MODELS = [RESNET,MVCNN]
+
 parser = argparse.ArgumentParser(description='MVCNN-PyTorch')
 parser.add_argument('data', metavar='DIR', help='path to dataset')
-parser.add_argument('--resnet', default=18, choices=[18, 34, 50, 101, 152], type=int, metavar='N', help='resnet depth (default: resnet18)')
+parser.add_argument('--resnet', choices=[18, 34, 50, 101, 152], type=int, metavar='N', help='resnet depth (default: resnet18)')
+parser.add_argument('--model', '-m', metavar='MODEL', default=MVCNN, choices=MODELS,
+                    help='pretrained model: ' + ' | '.join(MODELS) + ' (default: {})'.format(RESNET))
 parser.add_argument('--epochs', default=100, type=int, metavar='N', help='number of total epochs to run (default: 100)')
 parser.add_argument('-b', '--batch-size', default=4, type=int,
                     metavar='N', help='mini-batch size (default: 4)')
-parser.add_argument('--lr', '--learning-rate', default=0.01, type=float,
+parser.add_argument('--lr', '--learning-rate', default=0.0001, type=float,
                     metavar='LR', help='initial learning rate (default: 0.01)')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                     help='momentum (default: 0.9)')
@@ -34,7 +41,7 @@ parser.add_argument('--print-freq', '-p', default=10, type=int,
                     metavar='N', help='print frequency (default: 10)')
 parser.add_argument('-r', '--resume', default='', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
-#parser.add_argument('--pretrained', dest='pretrained', action='store_true', help='use pre-trained model')
+parser.add_argument('--pretrained', dest='pretrained', action='store_true', help='use pre-trained model')
 
 args = parser.parse_args()
 
@@ -58,19 +65,25 @@ val_loader = DataLoader(dset_val, batch_size=args.batch_size, shuffle=True, num_
 classes = dset_train.classes
 print(len(classes), classes)
 
-if args.resnet == 18:
-    resnet = resnet18(num_classes=len(classes))
-elif args.resnet == 34:
-    resnet = resnet34(num_classes=len(classes))
-elif args.resnet == 50:
-    resnet = resnet50(num_classes=len(classes))
-elif args.resnet == 101:
-    resnet = resnet101(num_classes=len(classes))
-elif args.resnet == 152:
-    resnet = resnet152(num_classes=len(classes))
+if args.model == RESNET:
+    if args.resnet == 18:
+        model = resnet18(pretrained=args.pretrained, num_classes=len(classes))
+    elif args.resnet == 34:
+        model = resnet34(pretrained=args.pretrained, num_classes=len(classes))
+    elif args.resnet == 50:
+        model = resnet50(pretrained=args.pretrained, num_classes=len(classes))
+    elif args.resnet == 101:
+        model = resnet101(pretrained=args.pretrained, num_classes=len(classes))
+    elif args.resnet == 152:
+        model = resnet152(pretrained=args.pretrained, num_classes=len(classes))
+    else:
+        raise Exception('Specify number of layers for resnet in command line. --resnet N')
+    print('Using ' + args.model + str(args.resnet))
+else:
+    model = mvcnn(pretrained=args.pretrained,num_classes=len(classes))
+    print('Using ' + args.model)
 
-print('Using resnet' + str(args.resnet))
-resnet.to(device)
+model.to(device)
 cudnn.benchmark = True
 
 print('Running on ' + str(device))
@@ -81,7 +94,7 @@ logger = Logger('logs')
 lr = args.lr
 n_epochs = args.epochs
 criterion = nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(resnet.parameters(), lr=lr)
+optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
 best_acc = 0.0
 best_loss = 0.0
@@ -98,7 +111,7 @@ def load_checkpoint():
     checkpoint = torch.load(args.resume)
     best_acc = checkpoint['best_acc']
     start_epoch = checkpoint['epoch']
-    resnet.load_state_dict(checkpoint['state_dict'])
+    model.load_state_dict(checkpoint['state_dict'])
     optimizer.load_state_dict(checkpoint['optimizer'])
 
 
@@ -111,11 +124,11 @@ def train():
 
         inputs = torch.from_numpy(inputs)
 
-        inputs, targets = inputs.cuda(), targets.cuda()
+        inputs, targets = inputs.cuda(device), targets.cuda(device)
         inputs, targets = Variable(inputs), Variable(targets)
 
         # compute output
-        outputs = resnet(inputs)
+        outputs = model(inputs)
         loss = criterion(outputs, targets)
 
         # compute gradient and do SGD step
@@ -146,11 +159,11 @@ def eval(data_loader, is_test=False):
 
             inputs = torch.from_numpy(inputs)
 
-            inputs, targets = inputs.cuda(), targets.cuda()
+            inputs, targets = inputs.cuda(device), targets.cuda(device)
             inputs, targets = Variable(inputs), Variable(targets)
 
             # compute output
-            outputs = resnet(inputs)
+            outputs = model(inputs)
             loss = criterion(outputs, targets)
 
             total_loss += loss
@@ -175,11 +188,11 @@ for epoch in range(start_epoch, n_epochs):
     print('Epoch: [%d/%d]' % (epoch+1, n_epochs))
     start = time.time()
 
-    resnet.train()
+    model.train()
     train()
     print('Time taken: %.2f sec.' % (time.time() - start))
 
-    resnet.eval()
+    model.eval()
     avg_test_acc, avg_loss = eval(val_loader)
 
     print('\nEvaluation:')
@@ -188,7 +201,7 @@ for epoch in range(start_epoch, n_epochs):
 
     # Log epoch to tensorboard
     # See log using: tensorboard --logdir='logs' --port=6006
-    util.logEpoch(logger, resnet, epoch + 1, avg_loss, avg_test_acc)
+    util.logEpoch(logger, model, epoch + 1, avg_loss, avg_test_acc)
 
     # Save model
     if avg_test_acc > best_acc:
@@ -197,14 +210,14 @@ for epoch in range(start_epoch, n_epochs):
         best_loss = avg_loss
         util.save_checkpoint({
             'epoch': epoch + 1,
-            'state_dict': resnet.state_dict(),
+            'state_dict': model.state_dict(),
             'acc': avg_test_acc,
             'best_acc': best_acc,
             'optimizer': optimizer.state_dict(),
-        })
+        }, args.model, args.resnet)
 
     # Decaying Learning Rate
     if (epoch + 1) % args.lr_decay_freq == 0:
         lr *= args.lr_decay
-        optimizer = torch.optim.Adam(resnet.parameters(), lr=lr)
+        optimizer = torch.optim.Adam(model.parameters(), lr=lr)
         print('Learning rate:', lr)
