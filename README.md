@@ -3,6 +3,8 @@
 A PyTorch implementation of MVCNN using ResNet, inspired by the paper by [Hang Su](http://vis-www.cs.umass.edu/mvcnn/docs/su15mvcnn.pdf).
 MVCNN uses multiple 2D images of 3D objects to classify them. You can use the provided dataset or create your own.
 
+Also check out my [RotationNet](https://github.com/RBirkeland/RotationNet) implementation whitch outperforms MVCNN (Under construction).
+
 ![MVCNN](https://preview.ibb.co/eKcJHy/687474703a2f2f7669732d7777772e63732e756d6173732e6564752f6d76636e6e2f696d616765732f6d76636e6e2e706e67.png)
 
 ### Dependencies
